@@ -1,12 +1,255 @@
 <!DOCTYPE html>
 <html lang="fr">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Checklist SARL Parisi</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SARL Parisi - Outils Terrain</title>
+<script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen" style="font-family:'DM Sans',system-ui,sans-serif">
+
+<div id="app"></div>
+
+<script>
+const PHONE = "33612323923";
+const EMAIL = "contact@sarlparisi.fr";
+
+const state = { page: "home", section: 0, values: {}, submitted: false };
+
+const ddo = [
+  { title: "1. SÉCURITÉ & FUITE", color: "#ef4444", icon: "⚠️", fields: [
+    { id: "fuite_traitee", label: "La fuite est-elle traitée et stoppée ?", type: "bool", required: true },
+    { id: "fuite_notes", label: "Si non, noter le statut :", type: "text" },
+    { id: "humidite_active", label: "Zone encore humide / active ?", type: "bool" },
+    { id: "taux_humidite", label: "Taux d'humidité relevé (%)", type: "number", note: "Mesurer sur la zone la plus touchée. >20% = zone critique" },
+    { id: "taux_humidite_loc", label: "Localisation du relevé :", type: "text" },
+  ]},
+  { title: "2. LOCALISATION", color: "#f97316", icon: "📍", fields: [
+    { id: "adresse", label: "Adresse complète", type: "text" },
+    { id: "type_bien", label: "Type de bien", type: "select", options: ["Appartement","Maison","Local commercial","Autre"] },
+    { id: "etage", label: "Étage", type: "text" },
+    { id: "hauteur", label: "Hauteur sous plafond (m)", type: "number" },
+    { id: "acces", label: "Accès difficile ?", type: "bool" },
+    { id: "acces_notes", label: "Préciser :", type: "text" },
+    { id: "assurance", label: "Référence dossier assurance", type: "text" },
+  ]},
+  { title: "3. PLACO", color: "#3b82f6", icon: "🧱", fields: [
+    { id: "placo_touche", label: "Placo touchés ?", type: "bool" },
+    { id: "placo_surface", label: "Surface (m²)", type: "number" },
+    { id: "placo_deformation", label: "Déformation visible ?", type: "bool", note: "Si oui → remplacement obligatoire" },
+    { id: "placo_tache", label: "Taches sans déformation ?", type: "bool", note: "Si oui → repeinture possible" },
+    { id: "placo_decision", label: "Décision", type: "select", options: ["À valider par le gérant","Repeinture","Remplacement partiel","Remplacement total"] },
+    { id: "placo_photos", label: "Photos prises ?", type: "bool", required: true },
+  ]},
+  { title: "4. PEINTURE", color: "#8b5cf6", icon: "🎨", fields: [
+    { id: "peinture_surface", label: "Surface endommagée (m²)", type: "number" },
+    { id: "uniformisation", label: "Uniformisation nécessaire ?", type: "bool", note: "À valider par le gérant" },
+    { id: "unif_surface", label: "Surface uniformisation (m²)", type: "number" },
+    { id: "couleur", label: "Référence couleur si connue :", type: "text" },
+  ]},
+  { title: "5. SOL", color: "#10b981", icon: "⬜", fields: [
+    { id: "sol_touche", label: "Sol touché ?", type: "bool" },
+    { id: "sol_surface", label: "Surface (m²)", type: "number" },
+    { id: "sol_type", label: "Type de sol", type: "select", options: ["Carrelage","Parquet massif","Parquet stratifié","Vinyle / PVC","Moquette","Béton ciré","Autre"] },
+    { id: "sol_facture", label: "Facture d'origine disponible ?", type: "bool", note: "Demander au client" },
+    { id: "sol_reference", label: "Référence / marque :", type: "text" },
+    { id: "sol_photos", label: "Photos détaillées prises ?", type: "bool", required: true },
+    { id: "sol_decision", label: "Décision", type: "select", options: ["À valider par le gérant","Remplacement à l'identique","Remplacement similaire","Réparation partielle"] },
+  ]},
+  { title: "6. ESTIMATION", color: "#f59e0b", icon: "⏱️", fields: [
+    { id: "nb_pieces", label: "Nombre de pièces", type: "number" },
+    { id: "complexite", label: "Complexité", type: "select", options: ["Simple (1 corps d'état)","Moyen (2 corps d'état)","Complexe (3+ corps d'état)"] },
+    { id: "technicien", label: "Type de technicien", type: "select", options: ["Peintre standard","Peintre haut de gamme","Plaquiste","Solier","Multi-compétences"] },
+    { id: "duree", label: "Durée estimée (jours)", type: "number" },
+    { id: "notes", label: "Notes pour le gérant :", type: "textarea" },
+  ]},
+  { title: "7. PROFIL CLIENT", color: "#ec4899", icon: "👤", fields: [
+    { id: "profil", label: "Profil client", type: "select", options: ["Standard","Exigeant","Facile"], note: "Exigeant = informer le gérant" },
+    { id: "hors_sinistre", label: "Travaux hors sinistre demandés ?", type: "bool", note: 'Ne jamais s\'engager. Dire : "Je note et j\'en informe mon responsable."' },
+    { id: "hors_detail", label: "Si oui, détailler :", type: "textarea" },
+  ]},
+  { title: "8. ACTIONS", color: "#14b8a6", icon: "✅", fields: [
+    { id: "appel_gerant", label: "Appeler le gérant avant de partir ?", type: "bool", note: "Obligatoire si doute, hors sinistre, chantier complexe" },
+    { id: "expert", label: "Expert assurance à venir ?", type: "bool" },
+    { id: "expert_date", label: "Date / contact expert :", type: "text" },
+    { id: "photos_envoyees", label: "Photos envoyées au gérant ?", type: "bool", required: true },
+  ]},
+];
+
+const fin = [
+  { title: "1. INFOS CHANTIER", color: "#f97316", icon: "📍", fields: [
+    { id: "technicien", label: "Nom du technicien", type: "text", required: true },
+    { id: "adresse", label: "Adresse du chantier", type: "text", required: true },
+    { id: "date", label: "Date de fin", type: "text", required: true },
+    { id: "type_chantier", label: "Type de chantier", type: "select", options: ["Dégât des eaux","Rénovation peinture","Pose sol","Placo / cloisons","Multi-corps d'état","Autre"] },
+    { id: "ref", label: "Référence dossier", type: "text" },
+  ]},
+  { title: "2. PLACO & ENDUIT", color: "#3b82f6", icon: "🧱", fields: [
+    { id: "bandes", label: "Bandes invisibles ?", type: "bool", required: true, note: "Vérifier sous lumière rasante" },
+    { id: "poncage", label: "Ponçage lissé ?", type: "bool", required: true },
+    { id: "angles_placo", label: "Angles nets ?", type: "bool" },
+    { id: "trous", label: "Aucun trou non traité ?", type: "bool" },
+  ]},
+  { title: "3. PEINTURE", color: "#8b5cf6", icon: "🎨", fields: [
+    { id: "raccords", label: "Raccords invisibles ?", type: "bool", required: true, note: "Point critique SAV" },
+    { id: "angles_peinture", label: "Angles et plinthes propres ?", type: "bool", required: true },
+    { id: "interrupteurs", label: "Contours interrupteurs propres ?", type: "bool", required: true },
+    { id: "coulures", label: "Aucune coulure ?", type: "bool" },
+    { id: "vitres", label: "Vitres sans trace ?", type: "bool" },
+  ]},
+  { title: "4. SOL", color: "#10b981", icon: "⬜", fields: [
+    { id: "joints", label: "Joints propres ?", type: "bool" },
+    { id: "decoupe", label: "Découpes propres ?", type: "bool" },
+    { id: "bulles", label: "Aucune bulle ?", type: "bool" },
+    { id: "plinthes", label: "Plinthes bien fixées ?", type: "bool", note: "Appuyer sur chaque plinthe" },
+  ]},
+  { title: "5. NETTOYAGE", color: "#ef4444", icon: "🧹", fields: [
+    { id: "protections", label: "Protections retirées ?", type: "bool", required: true },
+    { id: "poussiere", label: "Poussière éliminée ?", type: "bool", required: true, note: "Coins, plinthes, fenêtres" },
+    { id: "sol_propre", label: "Sol nettoyé ?", type: "bool", required: true },
+    { id: "dechets", label: "Déchets évacués ?", type: "bool", required: true },
+    { id: "materiel", label: "Matériel récupéré ?", type: "bool", required: true },
+  ]},
+  { title: "6. PHOTOS", color: "#f59e0b", icon: "📸", fields: [
+    { id: "photo_generale", label: "Vue générale de chaque pièce ?", type: "bool", required: true },
+    { id: "photo_raccords", label: "Photo raccords peinture ?", type: "bool", required: true, note: "Obligatoire — protection litige" },
+    { id: "photo_sol", label: "Photo sol terminé ?", type: "bool" },
+    { id: "photo_envoyees", label: "Photos envoyées au gérant ?", type: "bool", required: true },
+  ]},
+  { title: "7. VALIDATION", color: "#14b8a6", icon: "✅", fields: [
+    { id: "conforme", label: "Chantier conforme au devis ?", type: "bool", required: true },
+    { id: "reserves", label: "Réserves à signaler ?", type: "bool" },
+    { id: "reserves_detail", label: "Détailler les réserves :", type: "textarea" },
+    { id: "appel_gerant", label: "Appel gérant nécessaire ?", type: "bool", note: "Obligatoire si réserves ou doute" },
+    { id: "notes_fin", label: "Notes pour le gérant :", type: "textarea" },
+  ]},
+];
+
+function buildDDOSummary(v) {
+  return `📋 FICHE DÉGÂT DES EAUX\n📍 ${v.adresse||"—"}\n🔖 Réf: ${v.assurance||"—"}\n💧 Humidité: ${v.taux_humidite||"—"}%${v.taux_humidite>20?" ⚠️CRITIQUE":""}\n   Localisation: ${v.taux_humidite_loc||"—"}\n🧱 Placo: ${v.placo_decision||"—"} (${v.placo_surface||"—"}m²)\n🎨 Peinture: ${v.peinture_surface||"—"}m²\n⬜ Sol: ${v.sol_decision||"—"} — ${v.sol_type||"—"}\n⏱️ Durée: ${v.duree||"—"} jour(s)\n👤 Profil: ${v.profil||"—"}\n🔧 Hors sinistre: ${v.hors_sinistre==="Oui"?"🚨 OUI":"Non"}${v.hors_detail?"\n   → "+v.hors_detail:""}\n📝 Notes: ${v.notes||"—"}`;
+}
+
+function buildFinSummary(v) {
+  return `✅ CHECKLIST FIN DE CHANTIER\n📅 ${v.date||"—"}\n👷 ${v.technicien||"—"}\n📍 ${v.adresse||"—"}\n🔖 Réf: ${v.ref||"—"}\n\nPLACO: Bandes=${v.bandes||"—"} | Ponçage=${v.poncage||"—"}\nPEINTURE: Raccords=${v.raccords||"—"} | Angles=${v.angles_peinture||"—"}\nSOL: Joints=${v.joints||"—"} | Plinthes=${v.plinthes||"—"}\nNETTOYAGE: Protections=${v.protections||"—"} | Déchets=${v.dechets||"—"}\nPHOTOS: Envoyées=${v.photo_envoyees||"—"}\nCONFORME: ${v.conforme||"—"} | Réserves=${v.reserves||"—"}${v.reserves_detail?"\n"+v.reserves_detail:""}${v.notes_fin?"\nNotes: "+v.notes_fin:""}`;
+}
+
+function render() {
+  const app = document.getElementById("app");
+  const s = state;
+
+  if (s.page === "home") {
+    app.innerHTML = `
+      <div class="min-h-screen flex flex-col items-center justify-center p-6">
+        <div class="text-6xl mb-4">🏗️</div>
+        <h1 class="text-3xl font-bold mb-2">SARL Parisi</h1>
+        <p class="text-gray-400 mb-10">Outils terrain</p>
+        <div class="w-full max-w-sm space-y-4">
+          <button onclick="goto('ddo')" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-5 px-6 rounded-2xl text-lg flex items-center gap-4">
+            <span class="text-3xl">💧</span>
+            <div class="text-left"><div>Dégât des Eaux</div><div class="text-blue-200 text-sm font-normal">Checklist métreur</div></div>
+          </button>
+          <button onclick="goto('fin')" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-5 px-6 rounded-2xl text-lg flex items-center gap-4">
+            <span class="text-3xl">✅</span>
+            <div class="text-left"><div>Fin de Chantier</div><div class="text-green-200 text-sm font-normal">Autocontrôle technicien</div></div>
+          </button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const sections = s.page === "ddo" ? ddo : fin;
+  const sec = sections[s.section];
+  const total = sections.flatMap(x=>x.fields).filter(f=>f.type!=="text"&&f.type!=="textarea").length;
+  const filled = sections.flatMap(x=>x.fields).filter(f=>f.type!=="text"&&f.type!=="textarea"&&s.values[f.id]).length;
+  const pct = Math.round(filled/total*100);
+
+  if (s.submitted) {
+    const summary = s.page==="ddo" ? buildDDOSummary(s.values) : buildFinSummary(s.values);
+    const addr = s.values.adresse || "Chantier";
+    app.innerHTML = `
+      <div class="min-h-screen p-6 max-w-lg mx-auto">
+        <div class="text-center mb-6">
+          <div class="text-5xl mb-3">📋</div>
+          <h2 class="text-2xl font-bold">Fiche complétée</h2>
+          <p class="text-gray-400 text-sm">${pct}% complété</p>
+        </div>
+        <div class="bg-gray-800 rounded-xl p-4 mb-5 font-mono text-xs text-gray-300 whitespace-pre-wrap max-h-64 overflow-y-auto border border-gray-700">${summary}</div>
+        <div class="grid grid-cols-2 gap-3 mb-3">
+          <button onclick="sendWA('${encodeURIComponent(summary)}')" class="py-3 rounded-xl font-bold text-sm bg-green-500 hover:bg-green-400 text-white">💬 WhatsApp</button>
+          <button onclick="sendEmail('${encodeURIComponent(addr)}','${encodeURIComponent(summary)}')" class="py-3 rounded-xl font-bold text-sm bg-blue-500 hover:bg-blue-400 text-white">📧 Email</button>
+        </div>
+        <button onclick="printPDF('${encodeURIComponent(summary)}')" class="w-full py-3 rounded-xl bg-gray-600 hover:bg-gray-500 text-white font-bold text-sm mb-3">🖨️ Imprimer / PDF</button>
+        <button onclick="reset()" class="w-full bg-amber-400 text-gray-900 font-bold py-3 rounded-xl text-sm">+ Nouveau chantier</button>
+      </div>`;
+    return;
+  }
+
+  const tabs = sections.map((s2,i) => `<button onclick="goSection(${i})" class="px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${s.section===i?"text-gray-900 font-bold":"text-gray-400"}" style="${s.section===i?`background:${s2.color}`:""}">${s2.icon} ${s2.title.split(". ")[1]}</button>`).join("");
+
+  const fields = sec.fields.map(f => {
+    let input = "";
+    const base = "w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm focus:outline-none mt-1";
+    if (f.type==="bool") {
+      input = `<div class="flex gap-3 mt-1">${["Oui","Non"].map(opt=>`<button onclick="setVal('${f.id}','${opt}')" class="px-4 py-1.5 rounded-lg text-sm font-medium border transition-all ${s.values[f.id]===opt?(opt==="Oui"?"bg-amber-400 text-gray-900 border-amber-400":"bg-gray-600 text-white border-gray-500"):"bg-transparent text-gray-400 border-gray-600"}">${opt}</button>`).join("")}</div>`;
+    } else if (f.type==="select") {
+      input = `<select onchange="setVal('${f.id}',this.value)" class="${base}"><option value="">— Sélectionner —</option>${f.options.map(o=>`<option value="${o}" ${s.values[f.id]===o?"selected":""}>${o}</option>`).join("")}</select>`;
+    } else if (f.type==="textarea") {
+      input = `<textarea onchange="setVal('${f.id}',this.value)" class="${base} h-20 resize-none" placeholder="Notes...">${s.values[f.id]||""}</textarea>`;
+    } else {
+      input = `<input type="${f.type||"text"}" onchange="setVal('${f.id}',this.value)" value="${s.values[f.id]||""}" class="${base}">`;
+    }
+    const noteHtml = f.note ? `<p class="text-xs mt-1 mb-2 px-2 py-1 rounded-lg" style="background:${sec.color}20;color:${sec.color}">💡 ${f.note}</p>` : "";
+    const alertHtml = f.type==="bool"&&f.required&&s.values[f.id]==="Non" ? `<p class="text-red-400 text-xs mt-2 font-medium">⚠️ Corriger avant de partir ou appeler le gérant</p>` : "";
+    return `<div class="rounded-xl p-4 border ${f.type==="bool"&&f.required&&s.values[f.id]==="Non"?"bg-red-900/20 border-red-500/50":"bg-gray-800 border-gray-700"}"><label class="text-sm text-gray-200 font-medium">${f.label}${f.required?'<span class="text-red-400 text-xs ml-1">*</span>':""}</label>${noteHtml}${input}${alertHtml}</div>`;
+  }).join("");
+
+  const prevBtn = s.section > 0 ? `<button onclick="goSection(${s.section-1})" class="flex-1 py-3 rounded-xl border border-gray-600 text-gray-300 text-sm">← Précédent</button>` : `<div class="flex-1"></div>`;
+  const nextBtn = s.section < sections.length-1 
+    ? `<button onclick="goSection(${s.section+1})" class="flex-1 py-3 rounded-xl font-bold text-gray-900 text-sm" style="background:${sec.color}">Suivant →</button>`
+    : `<button onclick="submit()" class="flex-1 py-3 rounded-xl bg-amber-400 font-bold text-gray-900 text-sm">✓ Finaliser</button>`;
+
+  app.innerHTML = `
+    <div class="min-h-screen">
+      <div class="bg-gray-800 border-b border-gray-700 px-4 py-4 sticky top-0 z-10">
+        <div class="max-w-2xl mx-auto">
+          <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-3">
+              <button onclick="goto('home')" class="text-gray-400 text-xl">←</button>
+              <div><h1 class="font-bold text-lg">${s.page==="ddo"?"Dégât des Eaux":"Fin de Chantier"}</h1><p class="text-gray-400 text-xs">${s.page==="ddo"?"Checklist métreur":"Autocontrôle technicien"}</p></div>
+            </div>
+            <div class="text-right"><div class="text-amber-400 font-bold text-xl">${pct}%</div><div class="text-gray-500 text-xs">complété</div></div>
+          </div>
+          <div class="h-1.5 bg-gray-700 rounded-full overflow-hidden"><div class="h-full bg-amber-400 rounded-full transition-all" style="width:${pct}%"></div></div>
+        </div>
+      </div>
+      <div class="overflow-x-auto border-b border-gray-700 bg-gray-800/50">
+        <div class="flex px-4 gap-1 py-2 min-w-max">${tabs}</div>
+      </div>
+      <div class="max-w-2xl mx-auto px-4 py-6">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style="background:${sec.color}20;border:1px solid ${sec.color}40">${sec.icon}</div>
+          <h2 class="text-lg font-bold" style="color:${sec.color}">${sec.title}</h2>
+        </div>
+        <div class="space-y-5">${fields}</div>
+        <div class="flex justify-between mt-8 gap-3">${prevBtn}${nextBtn}</div>
+      </div>
+    </div>`;
+}
+
+function goto(page) { state.page=page; state.section=0; state.values={}; state.submitted=false; render(); }
+function goSection(i) { state.section=i; render(); }
+function setVal(id,val) { state.values[id]=val; render(); }
+function submit() { state.submitted=true; render(); }
+function reset() { state.submitted=false; state.section=0; state.values={}; render(); }
+function sendWA(text) { window.open(`https://wa.me/${PHONE}?text=${text}`,"_blank"); }
+function sendEmail(addr,body) { window.open(`mailto:${EMAIL}?subject=${encodeURIComponent("Fiche chantier — "+decodeURIComponent(addr))}&body=${body}`,"_blank"); }
+function printPDF(summary) {
+  const w=window.open("","_blank");
+  w.document.write(`<html><head><title>Fiche chantier</title><style>body{font-family:monospace;font-size:13px;padding:30px;line-height:1.6}pre{white-space:pre-wrap}</style></head><body><h1>SARL PARISI</h1><pre>${decodeURIComponent(summary)}</pre></body></html>`);
+  w.document.close(); w.print();
+}
+
+render();
+</script>
+</body>
 </html>
